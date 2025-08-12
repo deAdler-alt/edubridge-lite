@@ -4,6 +4,8 @@ import { exportPackToPdf } from './lib/pdf'
 import { ocrImage } from './lib/ocr'
 import { isTtsSupported, speakText } from './lib/tts'
 
+const MAX_CHARS = 5000
+
 export default function App() {
   // Core state
   const [lang, setLang] = useState('en')
@@ -132,7 +134,7 @@ export default function App() {
     if (!pack) return
     const firstWords = (input || '').trim().split(/\s+/).slice(0, 8).join(' ')
     const title = firstWords ? `Lite Pack – ${firstWords}…` : 'Lite Pack'
-    exportPackToPdf(pack, { title, lang })
+    exportPackToPdf(pack, { title, lang, appUrl: window.location.origin })
   }
 
   async function onImageSelected(e) {
@@ -189,6 +191,15 @@ export default function App() {
     setOcrText('')
   }
 
+  // NEW: Insert demo text (instant showcase)
+  function insertDemoText() {
+    const demo = lang === 'pl'
+      ? 'Fotosynteza to proces, w którym rośliny wykorzystują energię światła do zamiany dwutlenku węgla i wody w glukozę oraz tlen. Zachodzi w chloroplastach z udziałem chlorofilu. Proces składa się z fazy jasnej i ciemnej. Ma kluczowe znaczenie dla obiegu węgla i produkcji tlenu na Ziemi.'
+      : 'Photosynthesis is the process by which plants use light energy to convert carbon dioxide and water into glucose and oxygen. It occurs in chloroplasts with the help of chlorophyll. The process includes a light-dependent stage and a light-independent stage. It is essential for Earth’s carbon cycle and oxygen production.'
+    setInput(demo)
+    setError('')
+  }
+
   // TTS controls
   function onTtsPlay() {
     if (!pack?.easy || !ttsSupported) return
@@ -242,6 +253,8 @@ export default function App() {
   }
 
   const wordCount = input.trim() ? input.trim().split(/\s+/).length : 0
+  const charCount = input.length
+  const overLimit = charCount > MAX_CHARS
 
   return (
     <div className="container">
@@ -265,6 +278,16 @@ export default function App() {
             : 'Paste lesson text or an article link. Or take a photo of notes and use OCR. We will create a Lite Pack: summary, easy language version, flashcards, and a quiz.'}
         </p>
 
+        {/* Quick win: Insert demo text */}
+        <div className="row" style={{ marginTop: 4 }}>
+          <button onClick={insertDemoText}>
+            {lang === 'pl' ? 'Wstaw przykładowy tekst' : 'Insert demo text'}
+          </button>
+          <span className="muted">{lang === 'pl'
+            ? 'Jeden klik, by zobaczyć wynik.'
+            : 'One click to see it in action.'}</span>
+        </div>
+
         {/* A2HS / Install app */}
         {installReady && !isIOS && (
           <div className="row" style={{ marginTop: 8 }}>
@@ -278,13 +301,12 @@ export default function App() {
             </span>
           </div>
         )}
-        {/* iOS Safari nie ma beforeinstallprompt — pokaż wskazówkę */}
         {!installReady && !installed && isIOS && (
           <div className="row" style={{ marginTop: 8 }}>
             <span className="muted">
               {lang === 'pl'
-                ? 'Na iOS: stuknij Udostępnij → „Dodaj do ekranu początkowego”, aby zainstalować.'
-                : 'On iOS: tap Share → “Add to Home Screen” to install.'}
+                ? 'Na iOS: Udostępnij → „Dodaj do ekranu początkowego”.'
+                : 'On iOS: Share → “Add to Home Screen”.'}
             </span>
           </div>
         )}
@@ -299,6 +321,7 @@ export default function App() {
           <input
             type="file"
             accept="image/*"
+            capture="environment"
             onChange={onImageSelected}
             aria-label="Upload image for OCR"
           />
@@ -306,13 +329,14 @@ export default function App() {
             {lang === 'pl' ? 'Wstaw tekst z OCR' : 'Insert OCR text'}
           </button>
           {ocrLoading && (
-            <span className="muted">OCR: {ocrProgress}%</span>
+            <span className="muted" aria-live="polite">OCR: {ocrProgress}%</span>
           )}
         </div>
 
         {ocrError && (
           <div
             role="alert"
+            aria-live="assertive"
             style={{
               background: '#361a1a',
               border: '1px solid #663',
@@ -343,13 +367,18 @@ export default function App() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           aria-label="Source text"
+          maxLength={MAX_CHARS}
         />
 
-        <p className="muted" style={{ marginTop: 6 }}>{wordCount} {lang === 'pl' ? 'słów' : 'words'}</p>
+        <p className="muted" style={{ marginTop: 6 }}>
+          {wordCount} {lang === 'pl' ? 'słów' : 'words'} — {charCount}/{MAX_CHARS} {lang === 'pl' ? 'znaków' : 'chars'}
+          {overLimit && <b> {lang === 'pl' ? '(przekroczono limit)' : '(over limit)'}</b>}
+        </p>
 
         {error && (
           <div
             role="alert"
+            aria-live="assertive"
             style={{
               background: '#361a1a',
               border: '1px solid #663',
@@ -397,7 +426,7 @@ export default function App() {
               </span>
             )}
             {(ttsPlaying || ttsPaused) && (
-              <span className="muted">
+              <span className="muted" aria-live="polite">
                 {lang === 'pl'
                   ? `Postęp: ${ttsProgress.index}/${ttsProgress.total}`
                   : `Progress: ${ttsProgress.index}/${ttsProgress.total}`}

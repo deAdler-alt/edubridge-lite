@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { generateLitePack } from './lib/generator'
 import { exportPackToPdf } from './lib/pdf'
+import { ocrImage } from './lib/ocr'
+import { isTtsSupported, speakText } from './lib/tts'
+import { useRef } from 'react'
+
 
 export default function App() {
   const [lang, setLang] = useState('en')
@@ -8,9 +12,22 @@ export default function App() {
   const [loading, setLoading] = useState(false)
   const [pack, setPack] = useState(null)
   const [error, setError] = useState('')
+  const [ttsSupported, setTtsSupported] = useState(false)
+  const [ttsPlaying, setTtsPlaying] = useState(false)
+  const [ttsPaused, setTtsPaused] = useState(false)
+  const [ttsProgress, setTtsProgress] = useState({ index: 0, total: 0 })
+  const ttsRef = useRef(null)
+
+
+  // OCR state
+  const [ocrLoading, setOcrLoading] = useState(false)
+  const [ocrProgress, setOcrProgress] = useState(0)
+  const [ocrText, setOcrText] = useState('')
+  const [ocrError, setOcrError] = useState('')
 
   // Restore last session
   useEffect(() => {
+    setTtsSupported(isTtsSupported())
     try {
       const savedLang = localStorage.getItem('ebl_lang')
       const savedInput = localStorage.getItem('ebl_input')
@@ -58,10 +75,12 @@ export default function App() {
     setInput('')
     setPack(null)
     setError('')
+    setOcrText('')
+    setOcrError('')
     try {
       localStorage.removeItem('ebl_pack')
       localStorage.removeItem('ebl_input')
-      // pozostawiamy ebl_lang, żeby język się nie resetował
+      // zostawiamy ebl_lang
     } catch {}
   }
 
@@ -70,6 +89,64 @@ export default function App() {
     const firstWords = (input || '').trim().split(/\s+/).slice(0, 8).join(' ')
     const title = firstWords ? `Lite Pack – ${firstWords}…` : 'Lite Pack'
     exportPackToPdf(pack, { title, lang })
+  }
+
+  async function onImageSelected(e) {
+    const file = e.target.files && e.target.files[0]
+    if (!file) return
+    setOcrError('')
+    setOcrText('')
+    setOcrLoading(true)
+    setOcrProgress(0)
+    try {
+      // For Polish UI try eng+pol (will download traineddata on first use)
+      const langCode = lang === 'pl' ? 'eng+pol' : 'eng'
+      const text = await ocrImage(file, langCode, (m) => {
+        if (m && typeof m.progress === 'number') {
+          setOcrProgress(Math.round(m.progress * 100))
+        }
+      })
+      const clean = (text || '').trim()
+      if (!clean) {
+        throw new Error('Empty OCR result')
+      }
+      setOcrText(clean)
+    } catch (err) {
+      // fallback attempt to ENG only (faster)
+      if (lang === 'pl') {
+        try {
+          const text2 = await ocrImage(e.target.files[0], 'eng', (m) => {
+            if (m && typeof m.progress === 'number') {
+              setOcrProgress(Math.round(m.progress * 100))
+            }
+          })
+          const clean2 = (text2 || '').trim()
+          if (!clean2) throw new Error('Empty OCR result')
+          setOcrText(clean2)
+        } catch {
+          setOcrError(lang === 'pl'
+            ? 'Błąd OCR. Spróbuj wyraźniejsze zdjęcie lub inny język.'
+            : 'OCR failed. Try a clearer image or another language.'
+          )
+        }
+      } else {
+        setOcrError(lang === 'pl'
+          ? 'Błąd OCR. Spróbuj wyraźniejsze zdjęcie.'
+          : 'OCR failed. Try a clearer image.'
+        )
+      }
+    } finally {
+      setOcrLoading(false)
+      setOcrProgress(0)
+      // Reset input to allow re-upload same file if needed
+      e.target.value = ''
+    }
+  }
+
+  function insertOcrText() {
+    if (!ocrText) return
+    setInput(prev => (prev ? (prev + '\n\n' + ocrText) : ocrText))
+    setOcrText('')
   }
 
   const wordCount = input.trim() ? input.trim().split(/\s+/).length : 0
@@ -92,9 +169,53 @@ export default function App() {
 
         <p className="muted">
           {lang === 'pl'
-            ? 'Wklej tekst lekcji lub link do artykułu. Utworzymy Lite Pack: podsumowanie, wersję prostym językiem, fiszki i quiz.'
-            : 'Paste lesson text or an article link. We will create a Lite Pack: summary, easy language version, flashcards, and a quiz.'}
+            ? 'Wklej tekst lekcji lub link do artykułu. Albo zrób zdjęcie notatki i użyj OCR. Utworzymy Lite Pack: podsumowanie, wersję prostym językiem, fiszki i quiz.'
+            : 'Paste lesson text or an article link. Or take a photo of notes and use OCR. We will create a Lite Pack: summary, easy language version, flashcards, and a quiz.'}
         </p>
+
+        {/* OCR Upload Row */}
+        <div className="row" style={{ alignItems: 'center', marginBottom: 8 }}>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={onImageSelected}
+            aria-label="Upload image for OCR"
+          />
+          <button onClick={insertOcrText} disabled={!ocrText || ocrLoading}>
+            {lang === 'pl' ? 'Wstaw tekst z OCR' : 'Insert OCR text'}
+          </button>
+          {ocrLoading && (
+            <span className="muted">OCR: {ocrProgress}%</span>
+          )}
+        </div>
+
+        {ocrError && (
+          <div
+            role="alert"
+            style={{
+              background: '#361a1a',
+              border: '1px solid #663',
+              padding: 10,
+              borderRadius: 8,
+              margin: '8px 0'
+            }}
+          >
+            {ocrError}
+          </div>
+        )}
+
+        {ocrText && (
+          <details style={{ marginBottom: 8 }}>
+            <summary className="muted">{lang === 'pl' ? 'Podgląd OCR' : 'OCR preview'}</summary>
+            <textarea
+              readOnly
+              value={ocrText}
+              rows={6}
+              style={{ width: '100%', marginTop: 8 }}
+              aria-label="OCR preview"
+            />
+          </details>
+        )}
 
         <textarea
           placeholder={lang === 'pl' ? 'Wklej tekst lub link…' : 'Paste text or link here…'}

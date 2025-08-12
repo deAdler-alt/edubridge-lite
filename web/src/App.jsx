@@ -29,8 +29,9 @@ export default function App() {
   const [installReady, setInstallReady] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState(null)
   const [installed, setInstalled] = useState(false)
+  const [isIOS, setIsIOS] = useState(false)
 
-  // Restore last session + detect TTS support
+  // Restore last session + detect TTS support + detect standalone/iOS
   useEffect(() => {
     try {
       const savedLang = localStorage.getItem('ebl_lang')
@@ -41,9 +42,19 @@ export default function App() {
       if (savedPack) setPack(JSON.parse(savedPack))
     } catch {}
     setTtsSupported(isTtsSupported())
+
+    const ua = (navigator.userAgent || '').toLowerCase()
+    const isiOSUA = /iphone|ipad|ipod/.test(ua)
+    setIsIOS(isiOSUA)
+
+    // detect if already running as installed app
+    const inStandalone =
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      (typeof navigator !== 'undefined' && 'standalone' in navigator && navigator.standalone)
+    if (inStandalone) setInstalled(true)
   }, [])
 
-  // Listen for PWA install events
+  // Listen for PWA install events (not fired on iOS Safari)
   useEffect(() => {
     function onBeforeInstall(e) {
       e.preventDefault()
@@ -221,13 +232,11 @@ export default function App() {
     setTtsProgress({ index: 0, total: 0 })
   }
 
-  // PWA: show install prompt
+  // PWA: show install prompt (Android/desktop)
   async function onInstallClick() {
     if (!deferredPrompt) return
     deferredPrompt.prompt()
-    try {
-      await deferredPrompt.userChoice
-    } catch {}
+    try { await deferredPrompt.userChoice } catch {}
     setDeferredPrompt(null)
     setInstallReady(false)
   }
@@ -257,7 +266,7 @@ export default function App() {
         </p>
 
         {/* A2HS / Install app */}
-        {installReady && (
+        {installReady && !isIOS && (
           <div className="row" style={{ marginTop: 8 }}>
             <button onClick={onInstallClick}>
               {lang === 'pl' ? 'Zainstaluj aplikację' : 'Install app'}
@@ -266,6 +275,16 @@ export default function App() {
               {lang === 'pl'
                 ? 'Dodaj do ekranu głównego, aby działać jak natywna aplikacja.'
                 : 'Add to Home Screen to use it like a native app.'}
+            </span>
+          </div>
+        )}
+        {/* iOS Safari nie ma beforeinstallprompt — pokaż wskazówkę */}
+        {!installReady && !installed && isIOS && (
+          <div className="row" style={{ marginTop: 8 }}>
+            <span className="muted">
+              {lang === 'pl'
+                ? 'Na iOS: stuknij Udostępnij → „Dodaj do ekranu początkowego”, aby zainstalować.'
+                : 'On iOS: tap Share → “Add to Home Screen” to install.'}
             </span>
           </div>
         )}

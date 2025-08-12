@@ -6,3 +6,4 @@ Offline-first web app to create Lite Education Packs
 2) Clone the repo
 3) `cd web && npm install`
 4) `npm run dev` → open the local URL
+

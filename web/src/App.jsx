@@ -25,6 +25,11 @@ export default function App() {
   const [ttsProgress, setTtsProgress] = useState({ index: 0, total: 0 })
   const ttsRef = useRef(null)
 
+  // PWA Install state
+  const [installReady, setInstallReady] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState(null)
+  const [installed, setInstalled] = useState(false)
+
   // Restore last session + detect TTS support
   useEffect(() => {
     try {
@@ -36,6 +41,26 @@ export default function App() {
       if (savedPack) setPack(JSON.parse(savedPack))
     } catch {}
     setTtsSupported(isTtsSupported())
+  }, [])
+
+  // Listen for PWA install events
+  useEffect(() => {
+    function onBeforeInstall(e) {
+      e.preventDefault()
+      setDeferredPrompt(e)
+      setInstallReady(true)
+    }
+    function onInstalled() {
+      setInstalled(true)
+      setInstallReady(false)
+      setDeferredPrompt(null)
+    }
+    window.addEventListener('beforeinstallprompt', onBeforeInstall)
+    window.addEventListener('appinstalled', onInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
   }, [])
 
   async function onGenerate() {
@@ -196,6 +221,17 @@ export default function App() {
     setTtsProgress({ index: 0, total: 0 })
   }
 
+  // PWA: show install prompt
+  async function onInstallClick() {
+    if (!deferredPrompt) return
+    deferredPrompt.prompt()
+    try {
+      await deferredPrompt.userChoice
+    } catch {}
+    setDeferredPrompt(null)
+    setInstallReady(false)
+  }
+
   const wordCount = input.trim() ? input.trim().split(/\s+/).length : 0
 
   return (
@@ -219,6 +255,25 @@ export default function App() {
             ? 'Wklej tekst lekcji lub link do artykułu. Albo zrób zdjęcie notatki i użyj OCR. Utworzymy Lite Pack: podsumowanie, wersję prostym językiem, fiszki i quiz.'
             : 'Paste lesson text or an article link. Or take a photo of notes and use OCR. We will create a Lite Pack: summary, easy language version, flashcards, and a quiz.'}
         </p>
+
+        {/* A2HS / Install app */}
+        {installReady && (
+          <div className="row" style={{ marginTop: 8 }}>
+            <button onClick={onInstallClick}>
+              {lang === 'pl' ? 'Zainstaluj aplikację' : 'Install app'}
+            </button>
+            <span className="muted">
+              {lang === 'pl'
+                ? 'Dodaj do ekranu głównego, aby działać jak natywna aplikacja.'
+                : 'Add to Home Screen to use it like a native app.'}
+            </span>
+          </div>
+        )}
+        {installed && (
+          <div className="muted" style={{ marginTop: 6 }}>
+            {lang === 'pl' ? 'Aplikacja zainstalowana ✅' : 'App installed ✅'}
+          </div>
+        )}
 
         {/* OCR Upload Row */}
         <div className="row" style={{ alignItems: 'center', marginBottom: 8 }}>

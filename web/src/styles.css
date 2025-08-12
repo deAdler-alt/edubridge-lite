@@ -1,0 +1,15 @@
+:root { --bg:#0b1020; --card:#111833; --text:#e9ecf5; --muted:#b9c2d3; --acc:#00d4ff; }
+*{box-sizing:border-box} body{margin:0; font-family:system-ui,Segoe UI,Roboto,Arial; background:linear-gradient(180deg,#0b1020,#0e1330); color:var(--text)}
+.container{max-width:980px;margin:0 auto;padding:24px}
+.card{background:var(--card);border:1px solid #1e2a55;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.25); padding:20px}
+h1{margin:0 0 8px;font-size:28px} .muted{color:var(--muted)}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+textarea{width:100%;min-height:140px;border-radius:12px;border:1px solid #223064;background:#0e1530;color:var(--text);padding:12px;resize:vertical}
+select{background:#0e1530;color:var(--text);border:1px solid #223064;border-radius:10px;padding:8px}
+button{background:var(--acc);color:#00111a;border:none;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer}
+button:disabled{opacity:.5;cursor:not-allowed}
+.section{margin-top:16px}
+ul,ol{margin:8px 0 0 20px}
+hr{border:0;border-top:1px solid #25315f;margin:16px 0}
+.footer{margin-top:12px;color:var(--muted);font-size:12px}
+.badge{font-size:12px;background:#0a2840;color:#7ad9ff;border:1px solid #174c75;padding:3px 8px;border-radius:999px}

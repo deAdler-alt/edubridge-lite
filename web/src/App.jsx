@@ -1,23 +1,16 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { generateLitePack } from './lib/generator'
 import { exportPackToPdf } from './lib/pdf'
 import { ocrImage } from './lib/ocr'
 import { isTtsSupported, speakText } from './lib/tts'
-import { useRef } from 'react'
-
 
 export default function App() {
+  // Core state
   const [lang, setLang] = useState('en')
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [pack, setPack] = useState(null)
   const [error, setError] = useState('')
-  const [ttsSupported, setTtsSupported] = useState(false)
-  const [ttsPlaying, setTtsPlaying] = useState(false)
-  const [ttsPaused, setTtsPaused] = useState(false)
-  const [ttsProgress, setTtsProgress] = useState({ index: 0, total: 0 })
-  const ttsRef = useRef(null)
-
 
   // OCR state
   const [ocrLoading, setOcrLoading] = useState(false)
@@ -25,9 +18,15 @@ export default function App() {
   const [ocrText, setOcrText] = useState('')
   const [ocrError, setOcrError] = useState('')
 
-  // Restore last session
+  // TTS state
+  const [ttsSupported, setTtsSupported] = useState(false)
+  const [ttsPlaying, setTtsPlaying] = useState(false)
+  const [ttsPaused, setTtsPaused] = useState(false)
+  const [ttsProgress, setTtsProgress] = useState({ index: 0, total: 0 })
+  const ttsRef = useRef(null)
+
+  // Restore last session + detect TTS support
   useEffect(() => {
-    setTtsSupported(isTtsSupported())
     try {
       const savedLang = localStorage.getItem('ebl_lang')
       const savedInput = localStorage.getItem('ebl_input')
@@ -36,9 +35,14 @@ export default function App() {
       if (savedInput) setInput(savedInput)
       if (savedPack) setPack(JSON.parse(savedPack))
     } catch {}
+    setTtsSupported(isTtsSupported())
   }, [])
 
   async function onGenerate() {
+    // Stop any TTS before generating
+    try { if (ttsRef.current) { ttsRef.current.cancel() } } catch {}
+    setTtsPlaying(false); setTtsPaused(false); setTtsProgress({ index: 0, total: 0 })
+
     setError('')
     const txt = input.trim()
     if (!txt) {
@@ -72,6 +76,10 @@ export default function App() {
   }
 
   function onClear() {
+    // Stop any TTS before clearing
+    try { if (ttsRef.current) { ttsRef.current.cancel() } } catch {}
+    setTtsPlaying(false); setTtsPaused(false); setTtsProgress({ index: 0, total: 0 })
+
     setInput('')
     setPack(null)
     setError('')
@@ -80,7 +88,7 @@ export default function App() {
     try {
       localStorage.removeItem('ebl_pack')
       localStorage.removeItem('ebl_input')
-      // zostawiamy ebl_lang
+      // keep ebl_lang
     } catch {}
   }
 
@@ -99,7 +107,6 @@ export default function App() {
     setOcrLoading(true)
     setOcrProgress(0)
     try {
-      // For Polish UI try eng+pol (will download traineddata on first use)
       const langCode = lang === 'pl' ? 'eng+pol' : 'eng'
       const text = await ocrImage(file, langCode, (m) => {
         if (m && typeof m.progress === 'number') {
@@ -107,12 +114,9 @@ export default function App() {
         }
       })
       const clean = (text || '').trim()
-      if (!clean) {
-        throw new Error('Empty OCR result')
-      }
+      if (!clean) throw new Error('Empty OCR result')
       setOcrText(clean)
     } catch (err) {
-      // fallback attempt to ENG only (faster)
       if (lang === 'pl') {
         try {
           const text2 = await ocrImage(e.target.files[0], 'eng', (m) => {
@@ -138,7 +142,7 @@ export default function App() {
     } finally {
       setOcrLoading(false)
       setOcrProgress(0)
-      // Reset input to allow re-upload same file if needed
+      // allow re-upload same file
       e.target.value = ''
     }
   }
@@ -147,6 +151,49 @@ export default function App() {
     if (!ocrText) return
     setInput(prev => (prev ? (prev + '\n\n' + ocrText) : ocrText))
     setOcrText('')
+  }
+
+  // TTS controls
+  function onTtsPlay() {
+    if (!pack?.easy || !ttsSupported) return
+    try { if (ttsRef.current) ttsRef.current.cancel() } catch {}
+    setTtsPaused(false)
+    setTtsPlaying(true)
+    setTtsProgress({ index: 0, total: 0 })
+    ttsRef.current = null
+    speakText(pack.easy, lang, { rate: 1 }, (e) => {
+      if (e.type === 'start') {
+        setTtsProgress({ index: 0, total: e.total || 0 })
+      } else if (e.type === 'chunk') {
+        setTtsProgress({ index: e.index || 0, total: e.total || 0 })
+      } else if (e.type === 'pause') {
+        setTtsPaused(true)
+      } else if (e.type === 'resume') {
+        setTtsPaused(false)
+      } else if (e.type === 'end' || e.type === 'cancel') {
+        setTtsPlaying(false); setTtsPaused(false)
+      }
+    }).then(ctrl => { ttsRef.current = ctrl })
+  }
+
+  function onTtsPause() {
+    if (!ttsRef.current) return
+    ttsRef.current.pause()
+    setTtsPaused(true)
+  }
+
+  function onTtsResume() {
+    if (!ttsRef.current) return
+    ttsRef.current.resume()
+    setTtsPaused(false)
+  }
+
+  function onTtsStop() {
+    if (!ttsRef.current) return
+    ttsRef.current.cancel()
+    setTtsPlaying(false)
+    setTtsPaused(false)
+    setTtsProgress({ index: 0, total: 0 })
   }
 
   const wordCount = input.trim() ? input.trim().split(/\s+/).length : 0
@@ -255,6 +302,36 @@ export default function App() {
           </button>
         </div>
 
+        {/* TTS controls */}
+        {pack && (
+          <div className="row" style={{ marginTop: 8 }}>
+            <button onClick={onTtsPlay} disabled={!ttsSupported || ttsPlaying}>
+              {lang === 'pl' ? 'Odtwórz Easy' : 'Play Easy'}
+            </button>
+            <button onClick={onTtsPause} disabled={!ttsSupported || !ttsPlaying || ttsPaused}>
+              {lang === 'pl' ? 'Pauza' : 'Pause'}
+            </button>
+            <button onClick={onTtsResume} disabled={!ttsSupported || !ttsPaused}>
+              {lang === 'pl' ? 'Wznów' : 'Resume'}
+            </button>
+            <button onClick={onTtsStop} disabled={!ttsSupported || (!ttsPlaying && !ttsPaused)}>
+              {lang === 'pl' ? 'Stop' : 'Stop'}
+            </button>
+            {!ttsSupported && (
+              <span className="muted">
+                {lang === 'pl' ? 'TTS nieobsługiwany w tej przeglądarce.' : 'TTS not supported in this browser.'}
+              </span>
+            )}
+            {(ttsPlaying || ttsPaused) && (
+              <span className="muted">
+                {lang === 'pl'
+                  ? `Postęp: ${ttsProgress.index}/${ttsProgress.total}`
+                  : `Progress: ${ttsProgress.index}/${ttsProgress.total}`}
+              </span>
+            )}
+          </div>
+        )}
+
         {pack && (
           <>
             <hr />
@@ -271,18 +348,22 @@ export default function App() {
             <section className="section">
               <h2>Flashcards</h2>
               <ul>
-                {pack.flashcards.map((f, i) =>
-                  <li key={i}><b>Q:</b> {f.q} — <b>A:</b> {f.a}</li>
-                )}
+                {pack.flashcards.map((f, i) => (
+                  <li key={i}>
+                    <b>Q:</b> {f.q} — <b>A:</b> {f.a}
+                  </li>
+                ))}
               </ul>
             </section>
 
             <section className="section">
               <h2>Quiz</h2>
               <ol>
-                {pack.quiz.map((q, i) =>
-                  <li key={i}>{q.q} <span className="muted">(A/B/C/D)</span></li>
-                )}
+                {pack.quiz.map((q, i) => (
+                  <li key={i}>
+                    {q.q} <span className="muted">(A/B/C/D)</span>
+                  </li>
+                ))}
               </ol>
             </section>
           </>

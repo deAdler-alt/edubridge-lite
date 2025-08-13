@@ -73,7 +73,6 @@ function toEasyLanguage(sentences, lang) {
       .replace(/\((.*?)\)/g, '')
       .replace(/[;:—–]/g, ',') 
       .replace(/\s*,\s*,/g, ',')
-      .replace(/\bwhich\b/gi, 'that')
       .replace(/\bthus\b/gi, 'so')
       .replace(/\btherefore\b/gi, 'so')
       .trim()
@@ -175,18 +174,17 @@ function condenseBullet(s) {
   let t = s
     .replace(/\s+/g, ' ')
     .replace(/\((.*?)\)/g, '')
-    .replace(/\s*[,;:—–-]\s*/g, ', ')
+    .replace(/\s*[,;:—–]\s*/g, ', ')
     .replace(/\s*,\s*,/g, ', ')
     .trim()
-  // jeśli zdanie jest długie, weź do pierwszej mocnej pauzy
+  t = t.replace(/,\s*\./g, '.')
   const cut = t.split(/(?<=,|\.)\s/)[0] || t
-  t = cut.length >= 80 ? trimLen(cut, 180) : cut
-  // dodaj kropkę na końcu, jeśli brak
+  t = cut.length >= 80 ? (cut.slice(0, 179).trim() + '…') : cut
   if (!/[.!?…]$/.test(t)) t += '.'
-  // wielka litera na początku
   t = t.charAt(0).toUpperCase() + t.slice(1)
   return t
 }
+
 
 function tokenSet(s, lang) {
   const stop = lang === 'pl' ? STOPWORDS_PL : STOPWORDS_EN

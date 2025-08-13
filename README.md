@@ -1,4 +1,3 @@
-````md
 # EduBridge Lite (PWA) — Offline-first learning helper
 
 **Mission:** Make education more accessible for under-resourced communities and high-schoolers by compressing any lesson (text/photo/link) into *Key Points*, *Easy Language*, *Flashcards* and a *Quiz* — all running on **free, offline, and open** tech.
@@ -88,4 +87,3 @@ docs/
 
 MIT — see `LICENSE`.
 
-````

@@ -12,6 +12,7 @@
   "dependencies": {
     "idb-keyval": "^6.2.2",
     "jspdf": "^3.0.1",
+    "node-html-parser": "^7.0.1",
     "qrcode": "^1.5.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

@@ -4,6 +4,7 @@ import { exportPackToPdf } from './lib/pdf'
 import { ocrImage } from './lib/ocr'
 import { isTtsSupported, speakText } from './lib/tts'
 import { savePack as savePackToLib, listPacks, loadPack as loadPackFromLib, deletePack as deletePackFromLib } from './lib/store'
+import { extractFromUrl } from './lib/extract'
 
 const MAX_CHARS = 5000
 
@@ -21,6 +22,10 @@ export default function App() {
   const [ocrText, setOcrText] = useState('')
   const [ocrError, setOcrError] = useState('')
 
+  // Article import state
+  const [articleLoading, setArticleLoading] = useState(false)
+  const [articleError, setArticleError] = useState('')
+
   // TTS state
   const [ttsSupported, setTtsSupported] = useState(false)
   const [ttsPlaying, setTtsPlaying] = useState(false)
@@ -34,11 +39,11 @@ export default function App() {
   const [installed, setInstalled] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
 
-  // Library state (My Packs)
-  const [packsList, setPacksList] = useState([]) // [{id,title,lang,createdAt}]
+  // Library state
+  const [packsList, setPacksList] = useState([])
   const [packsLoading, setPacksLoading] = useState(false)
 
-  // Restore last session + detect TTS support + detect standalone/iOS
+  // Restore last session + detect TTS + iOS + library
   useEffect(() => {
     try {
       const savedLang = localStorage.getItem('ebl_lang')
@@ -54,13 +59,11 @@ export default function App() {
     const isiOSUA = /iphone|ipad|ipod/.test(ua)
     setIsIOS(isiOSUA)
 
-    // detect if already running as installed app
     const inStandalone =
       (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
       (typeof navigator !== 'undefined' && 'standalone' in navigator && navigator.standalone)
     if (inStandalone) setInstalled(true)
 
-    // load user's saved packs list
     refreshPacksList()
   }, [])
 
@@ -69,14 +72,12 @@ export default function App() {
       setPacksLoading(true)
       const items = await listPacks()
       setPacksList(items)
-    } catch {
-      // ignore
-    } finally {
+    } catch {} finally {
       setPacksLoading(false)
     }
   }
 
-  // Listen for PWA install events (not fired on iOS Safari)
+  // PWA events
   useEffect(() => {
     function onBeforeInstall(e) {
       e.preventDefault()
@@ -97,7 +98,6 @@ export default function App() {
   }, [])
 
   async function onGenerate() {
-    // Stop any TTS before generating
     try { if (ttsRef.current) { ttsRef.current.cancel() } } catch {}
     setTtsPlaying(false); setTtsPaused(false); setTtsProgress({ index: 0, total: 0 })
 
@@ -119,22 +119,17 @@ export default function App() {
     try {
       const result = await generateLitePack(txt, lang)
       setPack(result)
-      // persist last session
       localStorage.setItem('ebl_pack', JSON.stringify(result))
       localStorage.setItem('ebl_lang', lang)
       localStorage.setItem('ebl_input', txt)
-    } catch (e) {
-      setError(lang === 'pl'
-        ? 'Coś poszło nie tak. Spróbuj ponownie.'
-        : 'Something went wrong. Try again.'
-      )
+    } catch {
+      setError(lang === 'pl' ? 'Coś poszło nie tak. Spróbuj ponownie.' : 'Something went wrong. Try again.')
     } finally {
       setLoading(false)
     }
   }
 
   function onClear() {
-    // Stop any TTS before clearing
     try { if (ttsRef.current) { ttsRef.current.cancel() } } catch {}
     setTtsPlaying(false); setTtsPaused(false); setTtsProgress({ index: 0, total: 0 })
 
@@ -143,10 +138,10 @@ export default function App() {
     setError('')
     setOcrText('')
     setOcrError('')
+    setArticleError('')
     try {
       localStorage.removeItem('ebl_pack')
       localStorage.removeItem('ebl_input')
-      // keep ebl_lang
     } catch {}
   }
 
@@ -160,16 +155,12 @@ export default function App() {
   async function onImageSelected(e) {
     const file = e.target.files && e.target.files[0]
     if (!file) return
-    setOcrError('')
-    setOcrText('')
-    setOcrLoading(true)
-    setOcrProgress(0)
+    setOcrError(''); setOcrText('')
+    setOcrLoading(true); setOcrProgress(0)
     try {
       const langCode = lang === 'pl' ? 'eng+pol' : 'eng'
       const text = await ocrImage(file, langCode, (m) => {
-        if (m && typeof m.progress === 'number') {
-          setOcrProgress(Math.round(m.progress * 100))
-        }
+        if (m && typeof m.progress === 'number') setOcrProgress(Math.round(m.progress * 100))
       })
       const clean = (text || '').trim()
       if (!clean) throw new Error('Empty OCR result')
@@ -178,29 +169,20 @@ export default function App() {
       if (lang === 'pl') {
         try {
           const text2 = await ocrImage(e.target.files[0], 'eng', (m) => {
-            if (m && typeof m.progress === 'number') {
-              setOcrProgress(Math.round(m.progress * 100))
-            }
+            if (m && typeof m.progress === 'number') setOcrProgress(Math.round(m.progress * 100))
           })
           const clean2 = (text2 || '').trim()
           if (!clean2) throw new Error('Empty OCR result')
           setOcrText(clean2)
         } catch {
-          setOcrError(lang === 'pl'
-            ? 'Błąd OCR. Spróbuj wyraźniejsze zdjęcie lub inny język.'
-            : 'OCR failed. Try a clearer image or another language.'
-          )
+          setOcrError(lang === 'pl' ? 'Błąd OCR. Spróbuj wyraźniejsze zdjęcie lub inny język.' : 'OCR failed. Try a clearer image or another language.')
         }
       } else {
-        setOcrError(lang === 'pl'
-          ? 'Błąd OCR. Spróbuj wyraźniejsze zdjęcie.'
-          : 'OCR failed. Try a clearer image.'
-        )
+        setOcrError(lang === 'pl' ? 'Błąd OCR. Spróbuj wyraźniejsze zdjęcie.' : 'OCR failed. Try a clearer image.')
       }
     } finally {
       setOcrLoading(false)
       setOcrProgress(0)
-      // allow re-upload same file
       e.target.value = ''
     }
   }
@@ -218,6 +200,7 @@ export default function App() {
       : 'Photosynthesis is the process by which plants use light energy to convert carbon dioxide and water into glucose and oxygen. It occurs in chloroplasts with the help of chlorophyll. The process includes a light-dependent stage and a light-independent stage. It is essential for Earth’s carbon cycle and oxygen production.'
     setInput(demo)
     setError('')
+    setArticleError('')
   }
 
   // Save current pack into library
@@ -229,10 +212,7 @@ export default function App() {
       await savePackToLib(pack, { title, lang, input })
       await refreshPacksList()
     } catch {
-      setError(lang === 'pl'
-        ? 'Nie udało się zapisać pakietu lokalnie.'
-        : 'Failed to save the pack locally.'
-      )
+      setError(lang === 'pl' ? 'Nie udało się zapisać pakietu lokalnie.' : 'Failed to save the pack locally.')
     }
   }
 
@@ -240,23 +220,18 @@ export default function App() {
     try {
       const entry = await loadPackFromLib(id)
       if (!entry) return
-      // Stop TTS before switch
       try { if (ttsRef.current) { ttsRef.current.cancel() } } catch {}
       setTtsPlaying(false); setTtsPaused(false); setTtsProgress({ index: 0, total: 0 })
 
       setPack(entry.pack)
       setInput(entry.input || '')
       setLang(entry.lang || 'en')
-      // persist as current session
       localStorage.setItem('ebl_pack', JSON.stringify(entry.pack))
       localStorage.setItem('ebl_lang', entry.lang || 'en')
       localStorage.setItem('ebl_input', entry.input || '')
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch {
-      setError(lang === 'pl'
-        ? 'Nie udało się wczytać pakietu.'
-        : 'Failed to load the pack.'
-      )
+      setError(lang === 'pl' ? 'Nie udało się wczytać pakietu.' : 'Failed to load the pack.')
     }
   }
 
@@ -265,10 +240,35 @@ export default function App() {
       await deletePackFromLib(id)
       await refreshPacksList()
     } catch {
-      setError(lang === 'pl'
-        ? 'Nie udało się usunąć pakietu.'
-        : 'Failed to delete the pack.'
+      setError(lang === 'pl' ? 'Nie udało się usunąć pakietu.' : 'Failed to delete the pack.')
+    }
+  }
+
+  // Import from URL
+  const looksLikeUrl = /^https?:\/\/\S+/i.test(input.trim())
+  async function onFetchArticle() {
+    const url = input.trim()
+    if (!looksLikeUrl) return
+    setArticleError('')
+    setArticleLoading(true)
+    try {
+      const { title, text } = await extractFromUrl(url)
+      // Replace input with extracted text (trim to MAX_CHARS handled on backend too)
+      setInput(text)
+      setPack(null) // reset current result so user regenerates
+      // Persist the input (optional)
+      localStorage.setItem('ebl_input', text)
+      if (title) {
+        // Optional: show title in easy way (we keep UI simple; user sees effect after Generate)
+        console.log('Extracted title:', title)
+      }
+    } catch (e) {
+      setArticleError(lang === 'pl'
+        ? 'Nie udało się pobrać artykułu. Wklej tekst ręcznie lub spróbuj inny link.'
+        : 'Failed to fetch article. Paste text manually or try another link.'
       )
+    } finally {
+      setArticleLoading(false)
     }
   }
 
@@ -281,47 +281,27 @@ export default function App() {
     setTtsProgress({ index: 0, total: 0 })
     ttsRef.current = null
     speakText(pack.easy, lang, { rate: 1 }, (e) => {
-      if (e.type === 'start') {
-        setTtsProgress({ index: 0, total: e.total || 0 })
-      } else if (e.type === 'chunk') {
-        setTtsProgress({ index: e.index || 0, total: e.total || 0 })
-      } else if (e.type === 'pause') {
-        setTtsPaused(true)
-      } else if (e.type === 'resume') {
-        setTtsPaused(false)
-      } else if (e.type === 'end' || e.type === 'cancel') {
-        setTtsPlaying(false); setTtsPaused(false)
-      }
+      if (e.type === 'start') setTtsProgress({ index: 0, total: e.total || 0 })
+      else if (e.type === 'chunk') setTtsProgress({ index: e.index || 0, total: e.total || 0 })
+      else if (e.type === 'pause') setTtsPaused(true)
+      else if (e.type === 'resume') setTtsPaused(false)
+      else if (e.type === 'end' || e.type === 'cancel') { setTtsPlaying(false); setTtsPaused(false) }
     }).then(ctrl => { ttsRef.current = ctrl })
   }
-
-  function onTtsPause() {
-    if (!ttsRef.current) return
-    ttsRef.current.pause()
-    setTtsPaused(true)
-  }
-
-  function onTtsResume() {
-    if (!ttsRef.current) return
-    ttsRef.current.resume()
-    setTtsPaused(false)
-  }
-
+  function onTtsPause() { if (ttsRef.current) { ttsRef.current.pause(); setTtsPaused(true) } }
+  function onTtsResume() { if (ttsRef.current) { ttsRef.current.resume(); setTtsPaused(false) } }
   function onTtsStop() {
     if (!ttsRef.current) return
     ttsRef.current.cancel()
-    setTtsPlaying(false)
-    setTtsPaused(false)
-    setTtsProgress({ index: 0, total: 0 })
+    setTtsPlaying(false); setTtsPaused(false); setTtsProgress({ index: 0, total: 0 })
   }
 
-  // PWA: show install prompt (Android/desktop)
+  // PWA: A2HS
   async function onInstallClick() {
     if (!deferredPrompt) return
     deferredPrompt.prompt()
     try { await deferredPrompt.userChoice } catch {}
-    setDeferredPrompt(null)
-    setInstallReady(false)
+    setDeferredPrompt(null); setInstallReady(false)
   }
 
   const wordCount = input.trim() ? input.trim().split(/\s+/).length : 0
@@ -355,9 +335,7 @@ export default function App() {
           <button onClick={insertDemoText}>
             {lang === 'pl' ? 'Wstaw przykładowy tekst' : 'Insert demo text'}
           </button>
-          <span className="muted">{lang === 'pl'
-            ? 'Jeden klik, by zobaczyć wynik.'
-            : 'One click to see it in action.'}</span>
+          <span className="muted">{lang === 'pl' ? 'Jeden klik, by zobaczyć wynik.' : 'One click to see it in action.'}</span>
         </div>
 
         {/* A2HS / Install app */}
@@ -366,19 +344,13 @@ export default function App() {
             <button onClick={onInstallClick}>
               {lang === 'pl' ? 'Zainstaluj aplikację' : 'Install app'}
             </button>
-            <span className="muted">
-              {lang === 'pl'
-                ? 'Dodaj do ekranu głównego, aby działać jak natywna aplikacja.'
-                : 'Add to Home Screen to use it like a native app.'}
-            </span>
+            <span className="muted">{lang === 'pl' ? 'Dodaj do ekranu głównego.' : 'Add to Home Screen.'}</span>
           </div>
         )}
         {!installReady && !installed && isIOS && (
           <div className="row" style={{ marginTop: 8 }}>
             <span className="muted">
-              {lang === 'pl'
-                ? 'Na iOS: Udostępnij → „Dodaj do ekranu początkowego”.'
-                : 'On iOS: Share → “Add to Home Screen”.'}
+              {lang === 'pl' ? 'Na iOS: Udostępnij → „Dodaj do ekranu początkowego”.' : 'On iOS: Share → “Add to Home Screen”.'}
             </span>
           </div>
         )}
@@ -400,74 +372,59 @@ export default function App() {
           <button onClick={insertOcrText} disabled={!ocrText || ocrLoading}>
             {lang === 'pl' ? 'Wstaw tekst z OCR' : 'Insert OCR text'}
           </button>
-          {ocrLoading && (
-            <span className="muted" aria-live="polite">OCR: {ocrProgress}%</span>
-          )}
+          {ocrLoading && <span className="muted" aria-live="polite">OCR: {ocrProgress}%</span>}
         </div>
 
         {ocrError && (
-          <div
-            role="alert"
-            aria-live="assertive"
-            style={{
-              background: '#361a1a',
-              border: '1px solid #663',
-              padding: 10,
-              borderRadius: 8,
-              margin: '8px 0'
-            }}
-          >
+          <div role="alert" aria-live="assertive" style={{ background: '#361a1a', border: '1px solid #663', padding: 10, borderRadius: 8, margin: '8px 0' }}>
             {ocrError}
           </div>
         )}
 
-        {ocrText && (
-          <details style={{ marginBottom: 8 }}>
-            <summary className="muted">{lang === 'pl' ? 'Podgląd OCR' : 'OCR preview'}</summary>
-            <textarea
-              readOnly
-              value={ocrText}
-              rows={6}
-              style={{ width: '100%', marginTop: 8 }}
-              aria-label="OCR preview"
-            />
-          </details>
-        )}
-
-        <textarea
-          placeholder={lang === 'pl' ? 'Wklej tekst lub link…' : 'Paste text or link here…'}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          aria-label="Source text"
-          maxLength={MAX_CHARS}
-        />
+        {/* URL → Fetch article */}
+        <div className="row" style={{ alignItems: 'center', gap: 8, margin: '6px 0' }}>
+          <textarea
+            placeholder={lang === 'pl' ? 'Wklej tekst lub link…' : 'Paste text or link here…'}
+            value={input}
+            onChange={(e) => { setInput(e.target.value); setArticleError('') }}
+            aria-label="Source text"
+            maxLength={MAX_CHARS}
+          />
+        </div>
 
         <p className="muted" style={{ marginTop: 6 }}>
           {wordCount} {lang === 'pl' ? 'słów' : 'words'} — {charCount}/{MAX_CHARS} {lang === 'pl' ? 'znaków' : 'chars'}
           {overLimit && <b> {lang === 'pl' ? '(przekroczono limit)' : '(over limit)'}</b>}
         </p>
 
+        {looksLikeUrl && (
+          <div className="row" style={{ marginTop: 6 }}>
+            <button onClick={onFetchArticle} disabled={articleLoading}>
+              {articleLoading
+                ? (lang === 'pl' ? 'Pobieranie…' : 'Fetching…')
+                : (lang === 'pl' ? 'Pobierz artykuł' : 'Fetch article')}
+            </button>
+            <span className="muted">
+              {lang === 'pl' ? 'Tekst zostanie wstawiony poniżej (max 5000 znaków).' : 'Extracted text will replace the input (max 5000 chars).'}
+            </span>
+          </div>
+        )}
+
+        {articleError && (
+          <div role="alert" aria-live="assertive" style={{ background: '#361a1a', border: '1px solid #663', padding: 10, borderRadius: 8, marginTop: 8 }}>
+            {articleError}
+          </div>
+        )}
+
         {error && (
-          <div
-            role="alert"
-            aria-live="assertive"
-            style={{
-              background: '#361a1a',
-              border: '1px solid #663',
-              padding: 10,
-              borderRadius: 8,
-              marginTop: 8
-            }}
-          >
+          <div role="alert" aria-live="assertive" style={{ background: '#361a1a', border: '1px solid #663', padding: 10, borderRadius: 8, marginTop: 8 }}>
             {error}
           </div>
         )}
 
         <div className="row" style={{ marginTop: 12, flexWrap: 'wrap', gap: 8 }}>
           <button onClick={onGenerate} disabled={loading || input.trim().length < 20}>
-            {loading
-              ? (lang === 'pl' ? 'Generowanie…' : 'Generating…')
-              : (lang === 'pl' ? 'Utwórz Lite Pack' : 'Generate Lite Pack')}
+            {loading ? (lang === 'pl' ? 'Generowanie…' : 'Generating…') : (lang === 'pl' ? 'Utwórz Lite Pack' : 'Generate Lite Pack')}
           </button>
           <button onClick={onClear} disabled={loading}>
             {lang === 'pl' ? 'Wyczyść' : 'Clear'}
@@ -480,7 +437,7 @@ export default function App() {
           </button>
         </div>
 
-        {/* My Packs (local library) */}
+        {/* My Packs */}
         <section className="section" style={{ marginTop: 16 }}>
           <h2>{lang === 'pl' ? 'Moje pakiety' : 'My Packs'}</h2>
           {packsLoading && <p className="muted">{lang === 'pl' ? 'Ładowanie…' : 'Loading…'}</p>}
@@ -537,9 +494,7 @@ export default function App() {
             )}
             {(ttsPlaying || ttsPaused) && (
               <span className="muted" aria-live="polite">
-                {lang === 'pl'
-                  ? `Postęp: ${ttsProgress.index}/${ttsProgress.total}`
-                  : `Progress: ${ttsProgress.index}/${ttsProgress.total}`}
+                {lang === 'pl' ? `Postęp: ${ttsProgress.index}/${ttsProgress.total}` : `Progress: ${ttsProgress.index}/${ttsProgress.total}`}
               </span>
             )}
           </div>

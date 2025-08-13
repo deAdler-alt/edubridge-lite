@@ -291,10 +291,13 @@ export default function App() {
   function onTtsPause() { if (ttsRef.current) { ttsRef.current.pause(); setTtsPaused(true) } }
   function onTtsResume() { if (ttsRef.current) { ttsRef.current.resume(); setTtsPaused(false) } }
   function onTtsStop() {
-    if (!ttsRef.current) return
-    ttsRef.current.cancel()
-    setTtsPlaying(false); setTtsPaused(false); setTtsProgress({ index: 0, total: 0 })
+    try { if (ttsRef.current) ttsRef.current.cancel() } catch {}
+    try { if (window?.speechSynthesis) window.speechSynthesis.cancel() } catch {}
+    setTtsPlaying(false)
+    setTtsPaused(false)
+    setTtsProgress({ index: 0, total: 0 })
   }
+
 
   // PWA: A2HS
   async function onInstallClick() {

@@ -2,7 +2,7 @@
 
 **Mission:** Make education more accessible for under-resourced communities and high-schoolers by compressing any lesson (text/photo/link) into *Key Points*, *Easy Language*, *Flashcards* and a *Quiz* - all running on **free, offline, and open** tech.
 
-**Live:** <your Vercel URL> • **Telegram bot:** see `TELEGRAM.md`  
+**Live:** [https://edubridge-lite-evx10ngss-deadler-alts-projects.vercel.app/](DEMO)
 **Languages:** EN + PL
 
 ---
@@ -48,7 +48,7 @@ Deploy to Vercel: add project with root at repo, build command `npm run build`, 
 * **Tesseract.js** (OCR with light pre-processing)
 * **Web Speech Synthesis** (TTS)
 * **jsPDF + qrcode** (PDF export)
-* **Serverless (Vercel)**: `/api/extract` (URL → text), `/api/telegram` (webhook)
+* **Serverless (Vercel)**: `/api/extract` (URL → text)
 
 ---
 
@@ -67,7 +67,6 @@ web/
       store.js      # IndexedDB wrapper
   api/
     extract.js      # URL extractor (serverless)
-    telegram.js     # Telegram webhook
   public/           # icons + manifest
 docs/
   ARCHITECTURE.md
@@ -79,7 +78,7 @@ docs/
 ## Privacy
 
 * No accounts. No analytics. No server DB.
-* Everything runs in your browser. Serverless is only used to fetch article HTML and to reply in Telegram. See `PRIVACY.md`.
+* Everything runs in your browser. Serverless is only used to fetch article HTML. See `PRIVACY.md`.
 
 ---
 

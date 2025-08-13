@@ -6,13 +6,12 @@ In many classrooms and homes, bandwidth and budget are limited. EduBridge Lite c
 ## What it does
 - Import **text/URL/photo** → generate **Key Points**, **Easy Language**, **Flashcards**, **Quiz**.
 - **Save offline** (IndexedDB), **TTS** to listen, **PDF** export, **PWA** install.
-- **Telegram bot** to generate a pack directly from chat.
 
 ## How we built it
 - **React + Vite PWA** with service worker.
 - **Heuristics (no paid LLMs)**: sentence scoring (keywords+position+length) for Key Points, cloze flashcards, MCQ quiz.
 - **OCR** via Tesseract.js with light pre-processing.
-- **Serverless (Vercel)**: `/api/extract` to fetch+parse articles; `/api/telegram` for webhook.
+- **Serverless (Vercel)**: `/api/extract` to fetch+parse articles.
 - **IndexedDB** for local library; **jsPDF+qrcode** for export.
 
 ## Challenges we ran into
@@ -29,12 +28,12 @@ In many classrooms and homes, bandwidth and budget are limited. EduBridge Lite c
 - PWA nuances on iOS, text-chunking for TTS, and practical article extraction heuristics.
 
 ## What's next
-- Telegram hardening (secret_token, rate limits).
+- Telegram integration (secret_token, rate limits) as future work.
 - More importers (PDF/docx).
 - Community templates for subjects.
 
 ## Links
-- **Live app:** <your Vercel URL>  
-- **Repo:** <GitHub URL>  
-- **Demo video (≤5 min):** <link>  
-- **Slides:** <link>  
+- **Live app:** https://edubridge-lite-evx10ngss-deadler-alts-projects.vercel.app 
+- **Repo:** https://github.com/deAdler-alt/edubridge-lite.git 
+- **Demo video (≤5 min):** <YouTube>
+- **Slides:** <canva link>

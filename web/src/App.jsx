@@ -3,6 +3,7 @@ import { generateLitePack } from './lib/generator'
 import { exportPackToPdf } from './lib/pdf'
 import { ocrImage } from './lib/ocr'
 import { isTtsSupported, speakText } from './lib/tts'
+import { savePack as savePackToLib, listPacks, loadPack as loadPackFromLib, deletePack as deletePackFromLib } from './lib/store'
 
 const MAX_CHARS = 5000
 
@@ -33,6 +34,10 @@ export default function App() {
   const [installed, setInstalled] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
 
+  // Library state (My Packs)
+  const [packsList, setPacksList] = useState([]) // [{id,title,lang,createdAt}]
+  const [packsLoading, setPacksLoading] = useState(false)
+
   // Restore last session + detect TTS support + detect standalone/iOS
   useEffect(() => {
     try {
@@ -54,7 +59,22 @@ export default function App() {
       (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
       (typeof navigator !== 'undefined' && 'standalone' in navigator && navigator.standalone)
     if (inStandalone) setInstalled(true)
+
+    // load user's saved packs list
+    refreshPacksList()
   }, [])
+
+  async function refreshPacksList() {
+    try {
+      setPacksLoading(true)
+      const items = await listPacks()
+      setPacksList(items)
+    } catch {
+      // ignore
+    } finally {
+      setPacksLoading(false)
+    }
+  }
 
   // Listen for PWA install events (not fired on iOS Safari)
   useEffect(() => {
@@ -99,7 +119,7 @@ export default function App() {
     try {
       const result = await generateLitePack(txt, lang)
       setPack(result)
-      // persist
+      // persist last session
       localStorage.setItem('ebl_pack', JSON.stringify(result))
       localStorage.setItem('ebl_lang', lang)
       localStorage.setItem('ebl_input', txt)
@@ -191,13 +211,65 @@ export default function App() {
     setOcrText('')
   }
 
-  // NEW: Insert demo text (instant showcase)
+  // Demo text
   function insertDemoText() {
     const demo = lang === 'pl'
       ? 'Fotosynteza to proces, w którym rośliny wykorzystują energię światła do zamiany dwutlenku węgla i wody w glukozę oraz tlen. Zachodzi w chloroplastach z udziałem chlorofilu. Proces składa się z fazy jasnej i ciemnej. Ma kluczowe znaczenie dla obiegu węgla i produkcji tlenu na Ziemi.'
       : 'Photosynthesis is the process by which plants use light energy to convert carbon dioxide and water into glucose and oxygen. It occurs in chloroplasts with the help of chlorophyll. The process includes a light-dependent stage and a light-independent stage. It is essential for Earth’s carbon cycle and oxygen production.'
     setInput(demo)
     setError('')
+  }
+
+  // Save current pack into library
+  async function onSavePack() {
+    if (!pack) return
+    try {
+      const firstWords = (input || '').trim().split(/\s+/).slice(0, 8).join(' ')
+      const title = firstWords ? `Lite Pack – ${firstWords}…` : 'Lite Pack'
+      await savePackToLib(pack, { title, lang, input })
+      await refreshPacksList()
+    } catch {
+      setError(lang === 'pl'
+        ? 'Nie udało się zapisać pakietu lokalnie.'
+        : 'Failed to save the pack locally.'
+      )
+    }
+  }
+
+  async function onLoadPack(id) {
+    try {
+      const entry = await loadPackFromLib(id)
+      if (!entry) return
+      // Stop TTS before switch
+      try { if (ttsRef.current) { ttsRef.current.cancel() } } catch {}
+      setTtsPlaying(false); setTtsPaused(false); setTtsProgress({ index: 0, total: 0 })
+
+      setPack(entry.pack)
+      setInput(entry.input || '')
+      setLang(entry.lang || 'en')
+      // persist as current session
+      localStorage.setItem('ebl_pack', JSON.stringify(entry.pack))
+      localStorage.setItem('ebl_lang', entry.lang || 'en')
+      localStorage.setItem('ebl_input', entry.input || '')
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch {
+      setError(lang === 'pl'
+        ? 'Nie udało się wczytać pakietu.'
+        : 'Failed to load the pack.'
+      )
+    }
+  }
+
+  async function onDeletePack(id) {
+    try {
+      await deletePackFromLib(id)
+      await refreshPacksList()
+    } catch {
+      setError(lang === 'pl'
+        ? 'Nie udało się usunąć pakietu.'
+        : 'Failed to delete the pack.'
+      )
+    }
   }
 
   // TTS controls
@@ -391,7 +463,7 @@ export default function App() {
           </div>
         )}
 
-        <div className="row" style={{ marginTop: 12 }}>
+        <div className="row" style={{ marginTop: 12, flexWrap: 'wrap', gap: 8 }}>
           <button onClick={onGenerate} disabled={loading || input.trim().length < 20}>
             {loading
               ? (lang === 'pl' ? 'Generowanie…' : 'Generating…')
@@ -403,7 +475,45 @@ export default function App() {
           <button onClick={onExportPdf} disabled={!pack || loading}>
             Export PDF
           </button>
+          <button onClick={onSavePack} disabled={!pack || loading}>
+            {lang === 'pl' ? 'Zapisz pakiet' : 'Save pack'}
+          </button>
         </div>
+
+        {/* My Packs (local library) */}
+        <section className="section" style={{ marginTop: 16 }}>
+          <h2>{lang === 'pl' ? 'Moje pakiety' : 'My Packs'}</h2>
+          {packsLoading && <p className="muted">{lang === 'pl' ? 'Ładowanie…' : 'Loading…'}</p>}
+          {(!packsLoading && packsList.length === 0) && (
+            <p className="muted">
+              {lang === 'pl'
+                ? 'Brak zapisanych pakietów. Utwórz i kliknij „Zapisz pakiet”.'
+                : 'No saved packs yet. Generate one and click “Save pack”.'}
+            </p>
+          )}
+          {packsList.length > 0 && (
+            <ul>
+              {packsList.map(p => (
+                <li key={p.id} className="row" style={{ alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div>
+                    <b>{p.title}</b>
+                    <div className="muted" style={{ fontSize: 12 }}>
+                      {new Date(p.createdAt).toLocaleString()} • {p.lang.toUpperCase()}
+                    </div>
+                  </div>
+                  <div className="row" style={{ gap: 6 }}>
+                    <button onClick={() => onLoadPack(p.id)}>
+                      {lang === 'pl' ? 'Wczytaj' : 'Load'}
+                    </button>
+                    <button onClick={() => onDeletePack(p.id)}>
+                      {lang === 'pl' ? 'Usuń' : 'Delete'}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
         {/* TTS controls */}
         {pack && (

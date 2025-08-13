@@ -8,6 +8,25 @@ import { extractFromUrl } from './lib/extract'
 
 const MAX_CHARS = 5000
 
+// Normalize key points: strip "Key point N:" etc., trim, keep sentence case
+function normalizeKeyPoints(points = []) {
+  return (points || [])
+    .map(p =>
+      String(p || '')
+        .replace(/^key\s*points?\s*[:\-–]\s*/i, '')
+        .replace(/^key\s*point\s*\d*\s*[:\-–]\s*/i, '')
+        .replace(/^\s*[-•]\s*/, '')
+        .trim()
+    )
+    .filter(Boolean)
+    .map(s => {
+      // capitalize first letter if needed
+      if (!s) return s
+      const c = s.charAt(0)
+      return (/[a-ząćęłńóśżź]/.test(c)) ? (c.toUpperCase() + s.slice(1)) : s
+    })
+}
+
 export default function App() {
   // Core state
   const [lang, setLang] = useState('en')
@@ -131,6 +150,7 @@ export default function App() {
 
   function onClear() {
     try { if (ttsRef.current) { ttsRef.current.cancel() } } catch {}
+    try { if (window?.speechSynthesis) window.speechSynthesis.cancel() } catch {}
     setTtsPlaying(false); setTtsPaused(false); setTtsProgress({ index: 0, total: 0 })
 
     setInput('')
@@ -221,6 +241,7 @@ export default function App() {
       const entry = await loadPackFromLib(id)
       if (!entry) return
       try { if (ttsRef.current) { ttsRef.current.cancel() } } catch {}
+      try { if (window?.speechSynthesis) window.speechSynthesis.cancel() } catch {}
       setTtsPlaying(false); setTtsPaused(false); setTtsProgress({ index: 0, total: 0 })
 
       setPack(entry.pack)
@@ -253,15 +274,10 @@ export default function App() {
     setArticleLoading(true)
     try {
       const { title, text } = await extractFromUrl(url)
-      // Replace input with extracted text (trim to MAX_CHARS handled on backend too)
       setInput(text)
-      setPack(null) // reset current result so user regenerates
-      // Persist the input (optional)
+      setPack(null) // reset
       localStorage.setItem('ebl_input', text)
-      if (title) {
-        // Optional: show title in easy way (we keep UI simple; user sees effect after Generate)
-        console.log('Extracted title:', title)
-      }
+      if (title) console.log('Extracted title:', title)
     } catch (e) {
       setArticleError(lang === 'pl'
         ? 'Nie udało się pobrać artykułu. Wklej tekst ręcznie lub spróbuj inny link.'
@@ -298,7 +314,6 @@ export default function App() {
     setTtsProgress({ index: 0, total: 0 })
   }
 
-
   // PWA: A2HS
   async function onInstallClick() {
     if (!deferredPrompt) return
@@ -309,7 +324,11 @@ export default function App() {
 
   const wordCount = input.trim() ? input.trim().split(/\s+/).length : 0
   const charCount = input.length
+  const limitReached = charCount >= MAX_CHARS
   const overLimit = charCount > MAX_CHARS
+
+  // Key Points derived from pack.summary
+  const keyPoints = pack ? normalizeKeyPoints(pack.summary).slice(0, 5) : []
 
   return (
     <div className="container">
@@ -329,8 +348,8 @@ export default function App() {
 
         <p className="muted">
           {lang === 'pl'
-            ? 'Wklej tekst lekcji lub link do artykułu. Albo zrób zdjęcie notatki i użyj OCR. Utworzymy Lite Pack: podsumowanie, wersję prostym językiem, fiszki i quiz.'
-            : 'Paste lesson text or an article link. Or take a photo of notes and use OCR. We will create a Lite Pack: summary, easy language version, flashcards, and a quiz.'}
+            ? 'Wklej tekst lekcji lub link do artykułu. Albo zrób zdjęcie notatki i użyj OCR. Utworzymy Lite Pack: kluczowe punkty, wersję prostym językiem, fiszki i quiz.'
+            : 'Paste lesson text or an article link. Or take a photo of notes and use OCR. We will create a Lite Pack: key points, easy language version, flashcards, and a quiz.'}
         </p>
 
         {/* Quick win: Insert demo text */}
@@ -379,12 +398,12 @@ export default function App() {
         </div>
 
         {ocrError && (
-          <div role="alert" aria-live="assertive" style={{ background: '#361a1a', border: '1px solid #663', padding: 10, borderRadius: 8, margin: '8px 0' }}>
+          <div role="alert" aria-live="assertive" style={{ background: '#3a1a1a', border: '1px solid #aa4444', padding: 10, borderRadius: 8, margin: '8px 0' }}>
             {ocrError}
           </div>
         )}
 
-        {/* URL → Fetch article */}
+        {/* URL → Fetch article + main textarea */}
         <div className="row" style={{ alignItems: 'center', gap: 8, margin: '6px 0' }}>
           <textarea
             placeholder={lang === 'pl' ? 'Wklej tekst lub link…' : 'Paste text or link here…'}
@@ -397,10 +416,11 @@ export default function App() {
 
         <p className="muted" style={{ marginTop: 6 }}>
           {wordCount} {lang === 'pl' ? 'słów' : 'words'} — {charCount}/{MAX_CHARS} {lang === 'pl' ? 'znaków' : 'chars'}
+          {limitReached && <b> {lang === 'pl' ? '(osiągnięto limit)' : '(limit reached)'}</b>}
           {overLimit && <b> {lang === 'pl' ? '(przekroczono limit)' : '(over limit)'}</b>}
         </p>
 
-        {looksLikeUrl && (
+        {/^https?:\/\/\S+/i.test(input.trim()) && (
           <div className="row" style={{ marginTop: 6 }}>
             <button onClick={onFetchArticle} disabled={articleLoading}>
               {articleLoading
@@ -414,13 +434,13 @@ export default function App() {
         )}
 
         {articleError && (
-          <div role="alert" aria-live="assertive" style={{ background: '#361a1a', border: '1px solid #663', padding: 10, borderRadius: 8, marginTop: 8 }}>
+          <div role="alert" aria-live="assertive" style={{ background: '#3a1a1a', border: '1px solid #aa4444', padding: 10, borderRadius: 8, marginTop: 8 }}>
             {articleError}
           </div>
         )}
 
         {error && (
-          <div role="alert" aria-live="assertive" style={{ background: '#361a1a', border: '1px solid #663', padding: 10, borderRadius: 8, marginTop: 8 }}>
+          <div role="alert" aria-live="assertive" style={{ background: '#3a1a1a', border: '1px solid #aa4444', padding: 10, borderRadius: 8, marginTop: 8 }}>
             {error}
           </div>
         )}
@@ -506,9 +526,15 @@ export default function App() {
         {pack && (
           <>
             <hr />
+
+            {/* KEY POINTS (clean, bullet list) */}
             <section className="section">
-              <h2>Summary</h2>
-              <ul>{pack.summary.map((s, i) => <li key={i}>{s}</li>)}</ul>
+              <h2>{lang === 'pl' ? 'Kluczowe punkty' : 'Key Points'}</h2>
+              {keyPoints.length > 0 ? (
+                <ul>{keyPoints.map((s, i) => <li key={i}>{s}</li>)}</ul>
+              ) : (
+                <p className="muted">{lang === 'pl' ? 'Brak punktów do wyświetlenia.' : 'No key points available.'}</p>
+              )}
             </section>
 
             <section className="section">
@@ -532,7 +558,17 @@ export default function App() {
               <ol>
                 {pack.quiz.map((q, i) => (
                   <li key={i}>
-                    {q.q} <span className="muted">(A/B/C/D)</span>
+                    <div>{q.q}</div>
+                    {Array.isArray(q.options) && q.options.length === 4 ? (
+                      <ul>
+                        <li>A) {q.options[0]}</li>
+                        <li>B) {q.options[1]}</li>
+                        <li>C) {q.options[2]}</li>
+                        <li>D) {q.options[3]}</li>
+                      </ul>
+                    ) : (
+                      <span className="muted">(A/B/C/D)</span>
+                    )}
                   </li>
                 ))}
               </ol>

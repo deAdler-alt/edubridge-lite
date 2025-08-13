@@ -24,3 +24,8 @@ button:disabled {
 }
 [aria-live] {
 }
+
+[role="alert"] {
+  background: #3a1a1a;
+  border: 1px solid #aa4444;
+}

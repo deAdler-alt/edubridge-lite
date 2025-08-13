@@ -22,10 +22,18 @@ button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
-[aria-live] {
-}
+
+[aria-live] 
+{}
 
 [role="alert"] {
   background: #3a1a1a;
   border: 1px solid #aa4444;
+}
+
+.quiz-opts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 6px;
+  padding-left: 16px;
 }

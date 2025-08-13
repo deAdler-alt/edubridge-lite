@@ -1,5 +1,4 @@
-```md
-# Telegram Bot (optional)
+# Telegram Bot
 
 ## Setup
 1. **Create bot**: talk to @BotFather → `/newbot` → copy **TOKEN**.
@@ -26,4 +25,3 @@ curl -s "[https://api.telegram.org/bot](https://api.telegram.org/bot)<TOKEN>/get
 - Check Vercel **Functions → Invocation Logs**.
 - 403 on webhook → bad token.  
 - No replies → env var missing or webhook not set.
-```

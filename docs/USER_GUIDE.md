@@ -1,9 +1,8 @@
-```md
 # User Guide — EduBridge Lite
 
 ## A. Basic flow
 1. Paste **text** or **URL** (http/https).  
-2. *(Optional)* Upload a **photo** of notes (OCR) → Insert OCR text.  
+2. *Upload a **photo** of notes (OCR) → Insert OCR text.  
 3. Click **Generate Lite Pack** → see **Key Points, Easy, Flashcards, Quiz**.  
 4. **Save pack** to your local library (offline).  
 5. **Export PDF** or **Install PWA**.
@@ -35,4 +34,3 @@
 - Hard refresh (Ctrl/Cmd+Shift+R) after updates.  
 - Safari Private Mode may not persist *My Packs*.  
 - OCR fails? Try clearer photo or different language.
-````

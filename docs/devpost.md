@@ -1,4 +1,3 @@
-```md
 # EduBridge Lite — Devpost Submission
 
 ## Inspiration
@@ -7,7 +6,7 @@ In many classrooms and homes, bandwidth and budget are limited. EduBridge Lite c
 ## What it does
 - Import **text/URL/photo** → generate **Key Points**, **Easy Language**, **Flashcards**, **Quiz**.
 - **Save offline** (IndexedDB), **TTS** to listen, **PDF** export, **PWA** install.
-- Optional **Telegram bot** to generate a pack directly from chat.
+- **Telegram bot** to generate a pack directly from chat.
 
 ## How we built it
 - **React + Vite PWA** with service worker.
@@ -39,4 +38,3 @@ In many classrooms and homes, bandwidth and budget are limited. EduBridge Lite c
 - **Repo:** <GitHub URL>  
 - **Demo video (≤5 min):** <link>  
 - **Slides:** <link>  
-```

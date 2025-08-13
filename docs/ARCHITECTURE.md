@@ -1,4 +1,3 @@
-```md
 # Architecture
 
 ## Overview
@@ -13,7 +12,7 @@
 - **TTS** `lib/tts.js`: chunking per sentence, reliable STOP (cancel queue).
 - **PDF** `lib/pdf.js`: safe page breaks + reserved footer area with QR.
 - **/api/extract**: HTML fetch + node-html-parser; tolerant fallbacks.
-- **/api/telegram**: webhook (optional), multi-message replies.
+- **/api/telegram**: webhook, multi-message replies.
 
 ## Data
 - No server DB. Packs saved as `{id,title,lang,input,pack,createdAt}` in IndexedDB.
@@ -21,4 +20,3 @@
 ## Limits
 - Input capped at 5000 chars (UX + Telegram limits).
 - Extractor may fail on hard paywalls/JS-only sites (graceful errors).
-```

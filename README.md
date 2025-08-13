@@ -1,6 +1,6 @@
-# EduBridge Lite (PWA) — Offline-first learning helper
+# EduBridge Lite - Offline-first learning helper
 
-**Mission:** Make education more accessible for under-resourced communities and high-schoolers by compressing any lesson (text/photo/link) into *Key Points*, *Easy Language*, *Flashcards* and a *Quiz* — all running on **free, offline, and open** tech.
+**Mission:** Make education more accessible for under-resourced communities and high-schoolers by compressing any lesson (text/photo/link) into *Key Points*, *Easy Language*, *Flashcards* and a *Quiz* - all running on **free, offline, and open** tech.
 
 **Live:** <your Vercel URL> • **Telegram bot:** see `TELEGRAM.md`  
 **Languages:** EN + PL
@@ -67,7 +67,7 @@ web/
       store.js      # IndexedDB wrapper
   api/
     extract.js      # URL extractor (serverless)
-    telegram.js     # Telegram webhook (optional)
+    telegram.js     # Telegram webhook
   public/           # icons + manifest
 docs/
   ARCHITECTURE.md

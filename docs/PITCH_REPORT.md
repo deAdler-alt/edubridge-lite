@@ -1,4 +1,3 @@
-```md
 # EduBridge Lite — Pitch Report
 
 ## 1. Introduction
@@ -24,4 +23,3 @@ EduBridge Lite reduces barriers to learning by turning any lesson (text, photo, 
 
 ## 6. Conclusion
 EduBridge Lite demonstrates that accessible, offline-first study tools can be built with free technology, offering real impact without requiring paid AI APIs.
-```

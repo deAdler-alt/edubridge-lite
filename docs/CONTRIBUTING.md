@@ -1,4 +1,3 @@
-```md
 # Contributing
 
 ## Commit messages
@@ -16,4 +15,3 @@ Use short, imperative, English messages (Conventional style is welcome):
 ## Code style
 - Keep dependencies minimal.
 - Favor clear, well-commented heuristics over clever one-liners.
-```

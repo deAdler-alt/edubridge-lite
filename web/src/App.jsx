@@ -3,12 +3,17 @@ import { generateLitePack } from './lib/generator'
 import { exportPackToPdf } from './lib/pdf'
 import { ocrImage } from './lib/ocr'
 import { isTtsSupported, speakText } from './lib/tts'
-import { savePack as savePackToLib, listPacks, loadPack as loadPackFromLib, deletePack as deletePackFromLib } from './lib/store'
+import {
+  savePack as savePackToLib,
+  listPacks,
+  loadPack as loadPackFromLib,
+  deletePack as deletePackFromLib
+} from './lib/store'
 import { extractFromUrl } from './lib/extract'
 
 const MAX_CHARS = 5000
 
-// Normalize key points: strip "Key point N:" etc., trim, keep sentence case
+// Normalize key points: strip prefixes like "Key point 1:", bullets, etc.
 function normalizeKeyPoints(points = []) {
   return (points || [])
     .map(p =>
@@ -20,7 +25,6 @@ function normalizeKeyPoints(points = []) {
     )
     .filter(Boolean)
     .map(s => {
-      // capitalize first letter if needed
       if (!s) return s
       const c = s.charAt(0)
       return (/[a-ząćęłńóśżź]/.test(c)) ? (c.toUpperCase() + s.slice(1)) : s
@@ -44,6 +48,8 @@ export default function App() {
   // Article import state
   const [articleLoading, setArticleLoading] = useState(false)
   const [articleError, setArticleError] = useState('')
+  const [articleTitle, setArticleTitle] = useState('')
+  const [articleTrimmed, setArticleTrimmed] = useState(false)
 
   // TTS state
   const [ttsSupported, setTtsSupported] = useState(false)
@@ -75,8 +81,7 @@ export default function App() {
     setTtsSupported(isTtsSupported())
 
     const ua = (navigator.userAgent || '').toLowerCase()
-    const isiOSUA = /iphone|ipad|ipod/.test(ua)
-    setIsIOS(isiOSUA)
+    setIsIOS(/iphone|ipad|ipod/.test(ua))
 
     const inStandalone =
       (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
@@ -159,6 +164,7 @@ export default function App() {
     setOcrText('')
     setOcrError('')
     setArticleError('')
+    setArticleTitle(''); setArticleTrimmed(false)
     try {
       localStorage.removeItem('ebl_pack')
       localStorage.removeItem('ebl_input')
@@ -221,6 +227,7 @@ export default function App() {
     setInput(demo)
     setError('')
     setArticleError('')
+    setArticleTitle(''); setArticleTrimmed(false)
   }
 
   // Save current pack into library
@@ -250,6 +257,7 @@ export default function App() {
       localStorage.setItem('ebl_pack', JSON.stringify(entry.pack))
       localStorage.setItem('ebl_lang', entry.lang || 'en')
       localStorage.setItem('ebl_input', entry.input || '')
+      setArticleTitle(''); setArticleTrimmed(false)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch {
       setError(lang === 'pl' ? 'Nie udało się wczytać pakietu.' : 'Failed to load the pack.')
@@ -274,10 +282,11 @@ export default function App() {
     setArticleLoading(true)
     try {
       const { title, text } = await extractFromUrl(url)
+      setArticleTitle(title || '')
+      setArticleTrimmed((text || '').length >= MAX_CHARS)
       setInput(text)
       setPack(null) // reset
       localStorage.setItem('ebl_input', text)
-      if (title) console.log('Extracted title:', title)
     } catch (e) {
       setArticleError(lang === 'pl'
         ? 'Nie udało się pobrać artykułu. Wklej tekst ręcznie lub spróbuj inny link.'
@@ -403,6 +412,13 @@ export default function App() {
           </div>
         )}
 
+        {/* Article info (title + trimmed) */}
+        {articleTitle && (
+          <div className="muted" style={{ marginTop: 8 }}>
+            Found: <b>{articleTitle}</b>{articleTrimmed ? ' — trimmed to 5000 chars' : ''}
+          </div>
+        )}
+
         {/* URL → Fetch article + main textarea */}
         <div className="row" style={{ alignItems: 'center', gap: 8, margin: '6px 0' }}>
           <textarea
@@ -416,11 +432,11 @@ export default function App() {
 
         <p className="muted" style={{ marginTop: 6 }}>
           {wordCount} {lang === 'pl' ? 'słów' : 'words'} — {charCount}/{MAX_CHARS} {lang === 'pl' ? 'znaków' : 'chars'}
-          {limitReached && <b> {lang === 'pl' ? '(osiągnięto limit)' : '(limit reached)'}</b>}
-          {overLimit && <b> {lang === 'pl' ? '(przekroczono limit)' : '(over limit)'}</b>}
+          {charCount >= MAX_CHARS && <b> {lang === 'pl' ? '(osiągnięto limit)' : '(limit reached)'}</b>}
+          {charCount > MAX_CHARS && <b> {lang === 'pl' ? '(przekroczono limit)' : '(over limit)'}</b>}
         </p>
 
-        {/^https?:\/\/\S+/i.test(input.trim()) && (
+        {/https?:\/\/\S+/i.test(input.trim()) && (
           <div className="row" style={{ marginTop: 6 }}>
             <button onClick={onFetchArticle} disabled={articleLoading}>
               {articleLoading
@@ -527,7 +543,7 @@ export default function App() {
           <>
             <hr />
 
-            {/* KEY POINTS (clean, bullet list) */}
+            {/* KEY POINTS */}
             <section className="section">
               <h2>{lang === 'pl' ? 'Kluczowe punkty' : 'Key Points'}</h2>
               {keyPoints.length > 0 ? (
@@ -560,7 +576,7 @@ export default function App() {
                   <li key={i}>
                     <div>{q.q}</div>
                     {Array.isArray(q.options) && q.options.length === 4 ? (
-                      <ul>
+                      <ul className="quiz-opts">
                         <li>A) {q.options[0]}</li>
                         <li>B) {q.options[1]}</li>
                         <li>C) {q.options[2]}</li>

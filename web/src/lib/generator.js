@@ -71,7 +71,7 @@ function toEasyLanguage(sentences, lang) {
   const simple = sentences.slice(0, max).map(s =>
     s
       .replace(/\((.*?)\)/g, '')
-      .replace(/[;:—–-]/g, ',')
+      .replace(/[;:—–]/g, ',') 
       .replace(/\s*,\s*,/g, ',')
       .replace(/\bwhich\b/gi, 'that')
       .replace(/\bthus\b/gi, 'so')

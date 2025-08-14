@@ -2,7 +2,7 @@
 
 **Mission:** Make education more accessible for under-resourced communities and high-schoolers by compressing any lesson (text/photo/link) into *Key Points*, *Easy Language*, *Flashcards* and a *Quiz* - all running on **free, offline, and open** tech.
 
-**Live:** [https://edubridge-lite-825oi2eob-deadler-alts-projects.vercel.app](DEMO)
+**Live:** [https://edubridge-lite-nkyvtgrnl-deadler-alts-projects.vercel.app](https://edubridge-lite-nkyvtgrnl-deadler-alts-projects.vercel.app)
 
 **Languages:** EN + PL
 

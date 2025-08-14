@@ -31,7 +31,6 @@ export function speakText(text, lang = 'en', { rate = 1, pitch = 1 } = {}, onEve
     u.rate = rate
     u.pitch = pitch
 
-    // events
     if (idx === 0) onEvent({ type: 'start', total: chunks.length })
     u.onstart = () => onEvent({ type: 'chunk', index: idx + 1, total: chunks.length })
     u.onend = () => { if (!canceled) { idx++; speakNext() } }
@@ -40,12 +39,10 @@ export function speakText(text, lang = 'en', { rate = 1, pitch = 1 } = {}, onEve
     try { window.speechSynthesis.speak(u) } catch { idx++; speakNext() }
   }
 
-  // start
   speakNext()
   return Promise.resolve(ctrl)
 }
 
-// split by sentences, cap chunk length to keep Safari happy
 function chunkText(t) {
   const sents = String(t || '').split(/(?<=[.!?])\s+/)
   const chunks = []

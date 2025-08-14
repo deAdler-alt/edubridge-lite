@@ -12,5 +12,5 @@ export async function extractFromUrl(url) {
   if (!data.ok) {
     throw new Error(data.error || 'Extraction failed')
   }
-  return data // { ok:true, title, text }
+  return data 
 }

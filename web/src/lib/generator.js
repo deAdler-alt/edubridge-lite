@@ -1,9 +1,4 @@
 // web/src/lib/generator.js
-// Heurystyczny generator offline bez LLM:
-// - Key Points (summary): wybór najlepszych zdań wg punktacji (pozycja, keywords, długość) + deduplikacja Jaccard
-// - Easy language: skrócone, proste zdania
-// - Flashcards: cloze (wstawka ____)
-// - Quiz: MCQ z dystraktorami
 
 const MAX_SUMMARY = 5
 const MAX_FLASH = 8
@@ -25,25 +20,19 @@ export async function generateLitePack(raw, lang = 'en') {
   const text = normalize(raw)
   const sentences = splitSentences(text)
 
-  // keywords: trochę więcej (pomaga scoringowi)
   const keywords = pickKeywords(text, lang, 16)
 
-  // Key Points (summary): wybór na podstawie scoringu + deduplikacji
   const summary = selectKeyPoints(sentences, keywords, lang, MAX_SUMMARY)
 
-  // Easy language – prosta parafraza bez LLM
   const easy = toEasyLanguage(sentences, lang)
 
-  // Flashcards – cloze na bazie keywords
   const flashcards = makeClozeFlashcards(sentences, keywords, MAX_FLASH)
 
-  // Quiz – MCQ z dystraktorami
   const quiz = makeQuiz(sentences, keywords, MAX_QUIZ)
 
   return { summary, easy, flashcards, quiz }
 }
 
-// ---------------- helpers ----------------
 
 function normalize(t) {
   return String(t || '')
@@ -54,7 +43,6 @@ function normalize(t) {
 
 function splitSentences(t) {
   if (!t) return []
-  // proste cięcie po końcu zdania; zakładamy wielką literę/ cyfrę po spacji
   return t
     .split(/(?<=[.!?])\s+(?=[A-ZŁŚŻŹĆŃ0-9])/)
     .map(s => s.trim())
@@ -95,22 +83,17 @@ function pickKeywords(text, lang, limit = 12) {
     .map(([w]) => w)
 }
 
-// -------- Key Points selection ----------
-
 function selectKeyPoints(sentences, keywords, lang, maxN) {
   if (!sentences.length) return []
 
-  // policz score dla każdego zdania
   const scored = sentences.map((s, i) => ({
     i,
     s,
     score: scoreSentence(s, i, keywords, lang)
   }))
 
-  // sort malejąco po score, stabilnie po pozycji
   scored.sort((a, b) => (b.score - a.score) || (a.i - b.i))
 
-  // deduplikacja po podobieństwie (Jaccard na tokenach bez stopwords)
   const out = []
   for (const cand of scored) {
     const bullet = condenseBullet(cand.s)
@@ -118,7 +101,7 @@ function selectKeyPoints(sentences, keywords, lang, maxN) {
     let tooSimilar = false
     for (const chosen of out) {
       const sim = jaccard(candTokens, tokenSet(chosen, lang))
-      if (sim >= 0.6) { // dość podobne — pomijamy
+      if (sim >= 0.6) {
         tooSimilar = true
         break
       }
@@ -127,7 +110,6 @@ function selectKeyPoints(sentences, keywords, lang, maxN) {
     if (out.length >= maxN) break
   }
 
-  // fallback: w razie czego weź początkowe zdania
   if (!out.length) {
     return sentences.slice(0, maxN).map(condenseBullet)
   }
@@ -137,13 +119,11 @@ function selectKeyPoints(sentences, keywords, lang, maxN) {
 function scoreSentence(s, index, keywords, lang) {
   let score = 0
 
-  // 1) Pozycja w tekście (lead bias)
   if (index === 0) score += 3
   else if (index === 1) score += 2
   else if (index === 2) score += 1.2
-  else score += Math.max(0, 1.0 - index * 0.03) // lekka degradacja dalej w tekście
+  else score += Math.max(0, 1.0 - index * 0.03)
 
-  // 2) Trafienia keywordów (unikalne)
   const lower = s.toLowerCase()
   let hits = 0
   const seen = new Set()
@@ -156,13 +136,11 @@ function scoreSentence(s, index, keywords, lang) {
   }
   score += hits * 1.5
 
-  // 3) Długość: preferujemy ~60–180 znaków
   const len = s.length
-  if (len > 220) score -= Math.min(2, (len - 220) / 100) // kara za tasiemce
+  if (len > 220) score -= Math.min(2, (len - 220) / 100) 
   if (len >= 60 && len <= 180) score += 0.8
   if (len < 40) score -= 0.4
 
-  // 4) Proste heurystyki semantyczne
   const boostersEN = /\b(is|are|includes|consists|helps|allows|enables|defines)\b/i
   const boostersPL = /\b(jest|to|składa się|zawiera|umożliwia|pozwala|definiuje)\b/i
   if ((lang === 'pl' ? boostersPL : boostersEN).test(lower)) score += 0.3
@@ -205,7 +183,6 @@ function escapeReg(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-// -------- Flashcards / Quiz ----------
 
 function sentenceContaining(sentences, term) {
   const re = new RegExp(`\\b${escapeReg(term)}\\b`, 'i')

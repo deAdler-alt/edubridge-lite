@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',      // auto aktualizacja SW
+      registerType: 'autoUpdate',      
       includeAssets: ['favicon.svg','icons/apple-icon-180.png','icons/pwa-192x192.png','icons/pwa-512x512.png','icons/maskable-512x512.png'],
       manifest: {
         name: 'EduBridge Lite',
@@ -26,19 +26,16 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         runtimeCaching: [
-          // strony
           {
             urlPattern: ({ request }) => request.destination === 'document',
             handler: 'NetworkFirst',
             options: { cacheName: 'pages', expiration: { maxEntries: 50 } }
           },
-          // zasoby
           {
             urlPattern: ({ request }) => ['style','script','worker'].includes(request.destination),
             handler: 'StaleWhileRevalidate',
             options: { cacheName: 'assets', expiration: { maxEntries: 50 } }
           },
-          // wszystko ze swojego originu
           {
             urlPattern: ({ url }) => url.origin === self.location.origin,
             handler: 'StaleWhileRevalidate',

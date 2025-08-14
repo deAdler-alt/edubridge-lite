@@ -2,7 +2,6 @@
 import jsPDF from 'jspdf'
 import QRCode from 'qrcode'
 
-// --- Layout (pt) ---
 const MARGIN = 40
 const QR_SIZE = 72
 const FOOTER_GAP = 14
@@ -13,10 +12,10 @@ const FS_BODY = 10
 
 const LH_TITLE = 28
 const LH_SECTION = 22
-const LH_BODY = 20 // 
+const LH_BODY = 20 
 
-const SP_BEFORE_SECTION = 36 // <= Twoja wartość
-const SP_AFTER_HEADING = 20  // <= Twoja wartość
+const SP_BEFORE_SECTION = 36 
+const SP_AFTER_HEADING = 20  
 
 function footerHeight () {
   return Math.max(QR_SIZE + 8, 92)
@@ -84,7 +83,6 @@ function addHeading (doc, text, y) {
   return y
 }
 
-// ---- Unicode font loader (TTF -> base64 -> VFS) ----
 function uint8ToBase64 (u8) {
   let res = ''
   const CHUNK = 0x8000
@@ -116,7 +114,6 @@ async function ensureFonts (doc) {
   }
 }
 
-// --- Title drawing with 3-line clamp + ellipsis ---
 function truncateToWidth (doc, str, maxWidth) {
   let s = String(str)
   while (s.length > 1 && doc.getTextWidth(s + '…') > maxWidth) {
@@ -141,7 +138,6 @@ function drawTitle (doc, title, y, maxWidth) {
   return y
 }
 
-// --- Atomic sections (measure -> if not fit -> new page -> draw) ---
 function sectionHeightForList (doc, items, maxWidth) {
   const lines = measureListLines(doc, items, maxWidth)
   return SP_BEFORE_SECTION + LH_SECTION + SP_AFTER_HEADING + lines * LH_BODY
@@ -171,11 +167,9 @@ export async function exportPackToPdf (pack, { title = 'Lite Pack', lang = 'en',
   doc.setFontSize(FS_BODY)
   doc.setLineHeightFactor(1.0)
 
-  // Title
   let y = MARGIN
   y = drawTitle(doc, title, y, maxW)
 
-  // ----- Summary / Podsumowanie -----
   {
     const heading = (lang === 'pl') ? 'Podsumowanie' : 'Summary'
     const needed = sectionHeightForList(doc, pack.summary || [], maxW)
@@ -184,7 +178,6 @@ export async function exportPackToPdf (pack, { title = 'Lite Pack', lang = 'en',
     y = addList(doc, pack.summary || [], MARGIN, y, maxW)
   }
 
-  // ----- Easy Language -----
   {
     const heading = (lang === 'pl') ? 'Wersja łatwiejsza' : 'Easy Language'
     const needed = sectionHeightForParagraph(doc, String(pack.easy || ''), maxW)
@@ -193,7 +186,6 @@ export async function exportPackToPdf (pack, { title = 'Lite Pack', lang = 'en',
     y = addWrapped(doc, String(pack.easy || ''), MARGIN, y, maxW, LH_BODY)
   }
 
-  // ----- Flashcards -----
   {
     const ftext = (pack.flashcards || [])
       .map(f => `Q: ${f.q}\nA: ${f.a}`)
@@ -204,7 +196,6 @@ export async function exportPackToPdf (pack, { title = 'Lite Pack', lang = 'en',
     y = addWrapped(doc, ftext, MARGIN, y, maxW, LH_BODY)
   }
 
-  // ----- Quiz -----
   {
     const qtext = (pack.quiz || []).map((q, i) => {
       if (Array.isArray(q.options) && q.options.length === 4) {
@@ -221,7 +212,6 @@ export async function exportPackToPdf (pack, { title = 'Lite Pack', lang = 'en',
     y = addWrapped(doc, qtext, MARGIN, y, maxW, LH_BODY)
   }
 
-  // Footer (QR + link)
   if (y > pageH - MARGIN - footerHeight() + LH_BODY) {
     doc.addPage()
   }

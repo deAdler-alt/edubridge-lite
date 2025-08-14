@@ -13,7 +13,6 @@ import { extractFromUrl } from './lib/extract'
 
 const MAX_CHARS = 5000
 
-// Normalize key points: strip prefixes like "Key point 1:", bullets, etc.
 function normalizeKeyPoints(points = []) {
   return (points || [])
     .map(p =>
@@ -32,43 +31,36 @@ function normalizeKeyPoints(points = []) {
 }
 
 export default function App() {
-  // Core state
   const [lang, setLang] = useState('en')
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [pack, setPack] = useState(null)
   const [error, setError] = useState('')
 
-  // OCR state
   const [ocrLoading, setOcrLoading] = useState(false)
   const [ocrProgress, setOcrProgress] = useState(0)
   const [ocrText, setOcrText] = useState('')
   const [ocrError, setOcrError] = useState('')
 
-  // Article import state
   const [articleLoading, setArticleLoading] = useState(false)
   const [articleError, setArticleError] = useState('')
   const [articleTitle, setArticleTitle] = useState('')
   const [articleTrimmed, setArticleTrimmed] = useState(false)
 
-  // TTS state
   const [ttsSupported, setTtsSupported] = useState(false)
   const [ttsPlaying, setTtsPlaying] = useState(false)
   const [ttsPaused, setTtsPaused] = useState(false)
   const [ttsProgress, setTtsProgress] = useState({ index: 0, total: 0 })
   const ttsRef = useRef(null)
 
-  // PWA Install state
   const [installReady, setInstallReady] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState(null)
   const [installed, setInstalled] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
 
-  // Library state
   const [packsList, setPacksList] = useState([])
   const [packsLoading, setPacksLoading] = useState(false)
 
-  // Restore last session + detect TTS + iOS + library
   useEffect(() => {
     try {
       const savedLang = localStorage.getItem('ebl_lang')
@@ -101,7 +93,6 @@ export default function App() {
     }
   }
 
-  // PWA events
   useEffect(() => {
     function onBeforeInstall(e) {
       e.preventDefault()
@@ -219,7 +210,6 @@ export default function App() {
     setOcrText('')
   }
 
-  // Demo text
   function insertDemoText() {
     const demo = lang === 'pl'
       ? 'Fotosynteza to proces, w którym rośliny wykorzystują energię światła do zamiany dwutlenku węgla i wody w glukozę oraz tlen. Zachodzi w chloroplastach z udziałem chlorofilu. Proces składa się z fazy jasnej i ciemnej. Ma kluczowe znaczenie dla obiegu węgla i produkcji tlenu na Ziemi.'
@@ -230,7 +220,6 @@ export default function App() {
     setArticleTitle(''); setArticleTrimmed(false)
   }
 
-  // Save current pack into library
   async function onSavePack() {
     if (!pack) return
     try {
@@ -273,7 +262,6 @@ export default function App() {
     }
   }
 
-  // Import from URL
   const looksLikeUrl = /^https?:\/\/\S+/i.test(input.trim())
   async function onFetchArticle() {
     const url = input.trim()
@@ -285,7 +273,7 @@ export default function App() {
       setArticleTitle(title || '')
       setArticleTrimmed((text || '').length >= MAX_CHARS)
       setInput(text)
-      setPack(null) // reset
+      setPack(null) 
       localStorage.setItem('ebl_input', text)
     } catch (e) {
       setArticleError(lang === 'pl'
@@ -297,7 +285,6 @@ export default function App() {
     }
   }
 
-  // TTS controls
   function onTtsPlay() {
     if (!pack?.easy || !ttsSupported) return
     try { if (ttsRef.current) ttsRef.current.cancel() } catch {}
@@ -323,7 +310,6 @@ export default function App() {
     setTtsProgress({ index: 0, total: 0 })
   }
 
-  // PWA: A2HS
   async function onInstallClick() {
     if (!deferredPrompt) return
     deferredPrompt.prompt()
@@ -336,7 +322,6 @@ export default function App() {
   const limitReached = charCount >= MAX_CHARS
   const overLimit = charCount > MAX_CHARS
 
-  // Key Points derived from pack.summary
   const keyPoints = pack ? normalizeKeyPoints(pack.summary).slice(0, 5) : []
 
   return (
@@ -361,7 +346,6 @@ export default function App() {
             : 'Paste lesson text or an article link. Or take a photo of notes and use OCR. We will create a Lite Pack: key points, easy language version, flashcards, and a quiz.'}
         </p>
 
-        {/* Quick win: Insert demo text */}
         <div className="row" style={{ marginTop: 4 }}>
           <button onClick={insertDemoText}>
             {lang === 'pl' ? 'Wstaw przykładowy tekst' : 'Insert demo text'}
@@ -369,7 +353,6 @@ export default function App() {
           <span className="muted">{lang === 'pl' ? 'Jeden klik, by zobaczyć wynik.' : 'One click to see it in action.'}</span>
         </div>
 
-        {/* A2HS / Install app */}
         {installReady && !isIOS && (
           <div className="row" style={{ marginTop: 8 }}>
             <button onClick={onInstallClick}>
@@ -391,7 +374,6 @@ export default function App() {
           </div>
         )}
 
-        {/* OCR Upload Row */}
         <div className="row" style={{ alignItems: 'center', marginBottom: 8 }}>
           <input
             type="file"
@@ -412,14 +394,12 @@ export default function App() {
           </div>
         )}
 
-        {/* Article info (title + trimmed) */}
         {articleTitle && (
           <div className="muted" style={{ marginTop: 8 }}>
             Found: <b>{articleTitle}</b>{articleTrimmed ? ' — trimmed to 5000 chars' : ''}
           </div>
         )}
 
-        {/* URL → Fetch article + main textarea */}
         <div className="row" style={{ alignItems: 'center', gap: 8, margin: '6px 0' }}>
           <textarea
             placeholder={lang === 'pl' ? 'Wklej tekst lub link…' : 'Paste text or link here…'}

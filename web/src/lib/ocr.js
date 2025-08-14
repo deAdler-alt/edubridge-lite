@@ -1,10 +1,9 @@
 // web/src/lib/ocr.js
-// Tesseract.js z prostym pre-processingiem: resize do ~1600px, odszumienie, grayscale.
 
 import Tesseract from 'tesseract.js'
 
 export async function ocrImage(fileOrBlob, lang = 'eng', onProgress = () => {}) {
-  const dataUrl = await toProcessedDataUrl(fileOrBlob, 1600) // resize & grayscale
+  const dataUrl = await toProcessedDataUrl(fileOrBlob, 1600)
   const res = await Tesseract.recognize(dataUrl, lang, {
     logger: m => {
       if (m && typeof m.progress === 'number') onProgress(m)
@@ -23,17 +22,13 @@ async function toProcessedDataUrl(fileOrBlob, maxW = 1600) {
   c.width = w; c.height = h
   const ctx = c.getContext('2d')
 
-  // Draw
   ctx.drawImage(img, 0, 0, w, h)
 
-  // Basic grayscale + contrast
   const imgData = ctx.getImageData(0, 0, w, h)
   const d = imgData.data
   for (let i = 0; i < d.length; i += 4) {
     const r = d[i], g = d[i+1], b = d[i+2]
-    // luminance
     let y = 0.299 * r + 0.587 * g + 0.114 * b
-    // simple contrast stretch
     y = (y - 128) * 1.2 + 128
     y = Math.max(0, Math.min(255, y))
     d[i] = d[i+1] = d[i+2] = y

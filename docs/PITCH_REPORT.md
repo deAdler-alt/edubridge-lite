@@ -1,4 +1,4 @@
-# EduBridge Lite — Pitch Report
+# EduBridge Lite - Pitch Report
 
 ## 1. Introduction
 EduBridge Lite reduces barriers to learning by turning any lesson (text, photo, or link) into digestible Key Points, Easy Language, Flashcards and a Quiz, all running offline in a PWA.
@@ -23,3 +23,9 @@ EduBridge Lite reduces barriers to learning by turning any lesson (text, photo, 
 
 ## 6. Conclusion
 EduBridge Lite demonstrates that accessible, offline-first study tools can be built with free technology, offering real impact without requiring paid AI APIs.
+
+## 7. Media Links
+- **Live app:** https://edubridge-lite-evx10ngss-deadler-alts-projects.vercel.app 
+- **Repo:** https://github.com/deAdler-alt/edubridge-lite.git 
+- **Demo video (≤5 min):** https://youtu.be/QsB82c8XvUk
+- **Slides:** https://docs.google.com/presentation/d/11e9VO_l0ZrSwutrbfOug-AOX-j0TxN8dtkWSjHEKLvs/edit?usp=sharing
